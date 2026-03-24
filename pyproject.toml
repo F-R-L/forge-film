@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "forge-film"
+version = "0.1.0"
+description = "DAG-driven parallel AI film generation system"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+keywords = ["ai", "video-generation", "multi-agent", "film", "dag", "parallel"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "openai>=1.30.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.27.0",
+    "moviepy>=1.0.3",
+    "Pillow>=10.0.0",
+    "python-dotenv>=1.0.0",
+    "aiofiles>=23.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "matplotlib>=3.9.0",
+]
+
+[project.scripts]
+forge = "forge.cli:app"
+
+[project.urls]
+homepage = "https://github.com/F-R-L/forge-film"
+repository = "https://github.com/F-R-L/forge-film"
