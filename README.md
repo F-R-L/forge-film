@@ -4,8 +4,6 @@
 
 **One story, multiple AI models, zero manual stitching.**
 
-Forge orchestrates Kling, CogVideoX, Seedance, and any video backend into one coherent film — fully open source.
-
 [![CI](https://github.com/F-R-L/forge-film/actions/workflows/ci.yml/badge.svg)](https://github.com/F-R-L/forge-film/actions)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -17,33 +15,31 @@ Forge orchestrates Kling, CogVideoX, Seedance, and any video backend into one co
 
 ---
 
-## ⚡ Why Forge?
+Making a multi-scene AI film means logging into Kling, CogVideoX, Seedance separately — downloading frames, color-correcting between models, stitching manually. An 8-scene short can eat half a day.
 
-In 2026, there are 6+ mainstream video models — Kling 3.0, Seedance 2.0, Sora 2, Veo 3, CogVideoX, Wan 2.6 — each with different strengths. The industry consensus is to mix them by scene type: Kling for dialogue, CogVideoX for landscapes, Seedance for action.
+**Forge automates the entire pipeline.** You write a story. Forge compiles it into a scene graph, routes each scene to the right model, runs them in parallel, keeps visual continuity across model boundaries, and outputs a single `final.mp4`.
 
-But in practice, creators end up as the "human scheduler":
+---
 
-- Manually decide which model fits each scene
-- Log in to different platforms / call different APIs
-- Download intermediate frames and pass them to the next scene for i2v
-- Manually color-correct (Kling and CogVideoX have naturally different color profiles)
-- Manually stitch clips in an editor
+## What Forge does
 
-**An 8-scene short film can eat half a day just switching between platforms.**
+🧭 **Story → DAG** — GPT-4o (or Claude / DeepSeek) compiles your story into a dependency graph. Scenes with no dependencies run in parallel.
 
-Forge automates the entire pipeline:
+⚡ **CPM parallel scheduling** — Critical Path Method finds the longest dependency chain and prioritizes it. N workers run simultaneously, not one by one.
 
-1. **Story → DAG** — GPT-4o (or Claude / DeepSeek) compiles your story into a scene dependency graph, identifying causal dependencies and parallelizable scenes
-2. **Scene-type routing** — dialogue goes to Kling, landscapes to CogVideoX (free, local), action to Seedance — fully configurable routing rules
-3. **CPM priority scheduling** — Critical Path Method finds the longest dependency chain, prioritizes scenes that block the most downstream work, N workers generate in parallel
-4. **Cross-model continuity** — when scene B depends on scene A and they use different models, Forge extracts A's last frame, applies color calibration (histogram matching), and passes it to B as the i2v seed image
-5. **Streaming assembly** — clips are concatenated as each scene completes, normalized to a common resolution and frame rate, output to `final.mp4`
+🎯 **Scene-type routing** — dialogue → Kling, landscapes → CogVideoX (free, local), action → Seedance. Fully configurable in `forge.yaml`.
 
-### Serial vs Parallel: why CPM scheduling matters
+🎨 **Cross-model continuity** — when scene B (CogVideoX) follows scene A (Kling), Forge extracts A's last frame, applies histogram color matching, and passes it as the i2v seed. No jarring cuts.
+
+🎬 **Streaming assembly** — clips concatenate as each scene finishes. Normalized resolution and frame rate. Outputs `final.mp4`.
+
+---
+
+## Parallel scheduling
 
 ```mermaid
 gantt
-    title Serial (no Forge) — 6 scenes × 5 min = 30 min
+    title Without Forge — 6 scenes × 5 min = 30 min
     dateFormat mm
     axisFormat %M min
     section Sequential
@@ -57,105 +53,41 @@ gantt
 
 ```mermaid
 gantt
-    title Forge (CPM parallel) — critical path = 15 min
+    title With Forge (CPM) — critical path = 15 min
     dateFormat mm
     axisFormat %M min
     section Worker 1
-    S1 (Kling)       :s1, 00, 5m
-    S3 (CogVideoX)   :s3, after s1, 5m
-    S5 (Seedance)    :s5, after s3, 5m
+    S1 (Kling)     :s1, 00, 5m
+    S3 (CogVideoX) :s3, after s1, 5m
+    S5 (Seedance)  :s5, after s3, 5m
     section Worker 2
-    S2 (Kling)       :s2, 00, 5m
-    S4 (CogVideoX)   :s4, after s2, 5m
-    S6 (Seedance)    :s6, after s4, 5m
+    S2 (Kling)     :s2, 00, 5m
+    S4 (CogVideoX) :s4, after s2, 5m
+    S6 (Seedance)  :s6, after s4, 5m
 ```
 
-### Cross-model continuity: how scenes stay connected
+---
+
+## Cross-model continuity
 
 ```mermaid
 flowchart LR
-    A["Scene A\nKling v1\n(dialogue)"] -->|"extract\nlast frame"| B["ColorCalibrator\nhistogram matching"]
-    B -->|"color-corrected\nseed image"| C["Scene B\nCogVideoX\n(landscape)"]
-    C -->|"extract\nlast frame"| D["ColorCalibrator\nhistogram matching"]
-    D -->|"color-corrected\nseed image"| E["Scene C\nSeedance\n(action)"]
+    A["Scene A\nKling"] -->|"last frame"| B["ColorCalibrator\nhistogram match"]
+    B -->|"seed image"| C["Scene B\nCogVideoX"]
+    C -->|"last frame"| D["ColorCalibrator\nhistogram match"]
+    D -->|"seed image"| E["Scene C\nSeedance"]
     style B fill:#f0a500,color:#000
     style D fill:#f0a500,color:#000
 ```
 
 ---
 
-## 🆚 How Forge Compares
-
-| | Forge | OpusClip Agent | Seedance Multi-shot | FilmAgent |
-|---|---|---|---|---|
-| Open source | ✅ MIT | ❌ Closed SaaS | ❌ | ✅ Research prototype |
-| Local deployment | ✅ | ❌ | ❌ | Partial |
-| Multi-model mixing | ✅ Cross-model orchestration | ✅ But not configurable | ❌ Single model | ❌ 3D virtual space |
-| Cross-model color calibration | ✅ | Unknown | N/A | N/A |
-| Pluggable backends | ✅ Full 4-layer stack | ❌ | ❌ | ❌ |
-| Data privacy | ✅ Data never leaves your machine | ❌ Third-party | ❌ | Partial |
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         forge.yaml                              │
-│              (LLM · ImageGen · Routing · Workers)               │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │
-          ┌─────────────▼──────────────┐
-          │     VisionCompiler          │  story text → ProductionPlan
-          │  (LLM: GPT-4o/Claude/DS)   │  scenes + assets + DAG
-          └─────────────┬──────────────┘
-                        │
-          ┌─────────────▼──────────────┐
-          │      AssetFoundry          │  generate reference images
-          │  (ImageGen: DALL·E/Flux)   │  per-character, per-location
-          └─────────────┬──────────────┘
-                        │
-          ┌─────────────▼──────────────┐
-          │      ForgeScheduler        │  CPM critical path
-          │  workers=N, retries=M      │  parallel scene dispatch
-          └──┬──────────────────┬──────┘
-             │                  │
-   ┌─────────▼──────┐  ┌───────▼────────┐
-   │ PipelineRouter │  │ ColorCalibrator │  histogram matching
-   │ scene_type →   │  │ last-frame i2v  │  cross-model continuity
-   │ kling/cogvideo │  └────────────────┘
-   │ /seedance/...  │
-   └─────────┬──────┘
-             │
-   ┌─────────▼──────────────────────────┐
-   │          Video Backends             │
-   │  KlingLight · KlingHeavy           │
-   │  CogVideoXPipeline (local GPU)     │
-   │  MockPipeline (no API key needed)  │
-   └─────────┬──────────────────────────┘
-             │
-   ┌─────────▼──────────────────────────┐
-   │  VLM Validator (GPT-4o/Claude)     │  optional frame check
-   └─────────┬──────────────────────────┘
-             │
-   ┌─────────▼──────────────────────────┐
-   │       StreamAssembler              │  ffmpeg concat → final.mp4
-   └────────────────────────────────────┘
-```
-
----
-
 ## 🚀 Quickstart
 
-> **No API keys?** Run with `--backend mock` for a full end-to-end test with zero external dependencies — no Kling, no OpenAI, nothing.
+> [!NOTE]
+> No API keys? Use `--backend mock` for a full end-to-end run with zero external dependencies.
 
-### Requirements
-
-- Python 3.11+
-- ffmpeg (for video assembly — `winget install Gyan.FFmpeg` / `brew install ffmpeg` / `apt install ffmpeg`)
-- GPU optional — CogVideoX local backend requires CUDA 12+; all other backends are API-based
-
-### Install
+**Requirements:** Python 3.11+ · ffmpeg · GPU optional (CogVideoX local needs CUDA 12+)
 
 ```bash
 git clone https://github.com/F-R-L/forge-film
@@ -164,59 +96,23 @@ pip install -e .
 cp .env.example .env
 ```
 
-### Configure
-
-Edit `forge.yaml` (defaults work out of the box):
-
-```yaml
-llm:
-  provider: openai      # openai | anthropic | deepseek
-  model: gpt-4o
-
-imagegen:
-  provider: mock        # mock = no API key needed
-
-validator:
-  provider: mock
-
-routing:
-  dialogue: kling_light     # dialogue scenes → Kling v1
-  action: kling_heavy       # action scenes → Kling v1.5 Pro
-  landscape: cogvideo       # landscapes → CogVideoX (free, local)
-  product: kling_heavy
-  transition: cogvideo
-  default: mock
-```
-
-Add API keys to `.env`:
-
 ```bash
-OPENAI_API_KEY=sk-...
-KLING_API_KEY=...
-KLING_API_SECRET=...
-```
-
-### Run
-
-```bash
-# End-to-end test with mock backend (no API keys needed)
+# Run with mock backend — no API keys needed
 forge run examples/detective.txt --backend mock --workers 4
 
-# Multi-model orchestration demo
+# Multi-model orchestration
 forge run examples/multi_backend_demo.txt --workers 4
 
-# Compile only — inspect DAG and routing without generating video
+# Inspect DAG and routing without generating video
 forge plan examples/detective.txt --scenes 6
 
 # Launch Web UI
 forge webui
 ```
 
-### Web UI
+**Web UI** — screenshot coming soon. Run `forge webui` to launch the Gradio interface locally.
 
-> Screenshot coming soon — run `forge webui` to launch the Gradio interface locally.
-
-### Use as a Library
+### As a library
 
 ```python
 from forge.config import ForgeConfig
@@ -227,15 +123,40 @@ cfg = ForgeConfig("forge.yaml")
 compiler = VisionCompiler(cfg.build_llm_provider())
 plan = await compiler.compile(story_text, num_scenes=6)
 
-# Build your backends dict and router
-# Run the scheduler
 scheduler = ForgeScheduler(plan, generate_fn, num_workers=cfg.workers)
 results, failed = await scheduler.run(asset_map, output_dir="./output")
 ```
 
 ---
 
-## ⚙️ Configuration Reference
+## ⚙️ Configuration
+
+`forge.yaml` — all fields optional, falls back to environment variables and defaults.
+
+```yaml
+llm:
+  provider: openai      # openai | anthropic | deepseek
+  model: gpt-4o
+
+imagegen:
+  provider: mock        # mock | openai | flux
+
+routing:
+  dialogue: kling_light     # Kling v1 — lip sync & character consistency
+  action: kling_heavy       # Kling v1.5 Pro — motion quality
+  landscape: cogvideo       # CogVideoX local — free
+  default: mock
+
+scheduler:
+  workers: 4
+```
+
+```bash
+# .env
+OPENAI_API_KEY=sk-...
+KLING_API_KEY=...
+KLING_API_SECRET=...
+```
 
 | Key | Options | Default |
 |---|---|---|
@@ -245,30 +166,56 @@ results, failed = await scheduler.run(asset_map, output_dir="./output")
 | `routing.dialogue` | any backend name | `kling_light` |
 | `routing.landscape` | any backend name | `cogvideo` |
 | `scheduler.workers` | int | `4` |
-| `output.dir` | path | `./output` |
-
-All API keys go in `.env` or environment variables — never in `forge.yaml`.
 
 ---
 
-## 📁 Project Structure
+## 🆚 How Forge compares
+
+| | Forge | OpusClip Agent | Seedance Multi-shot | FilmAgent |
+|---|---|---|---|---|
+| Open source | ✅ MIT | ❌ Closed SaaS | ❌ | ✅ Research prototype |
+| Local deployment | ✅ | ❌ | ❌ | Partial |
+| Multi-model mixing | ✅ | ✅ not configurable | ❌ single model | ❌ 3D virtual space |
+| Cross-model color calibration | ✅ | Unknown | N/A | N/A |
+| Pluggable backends | ✅ | ❌ | ❌ | ❌ |
+| Data privacy | ✅ stays local | ❌ third-party | ❌ | Partial |
+
+---
+
+## 🏗️ Architecture
+
+```
+forge.yaml
+    │
+    ├── VisionCompiler   story → ProductionPlan (scenes + DAG)
+    ├── AssetFoundry     reference images per character / location
+    ├── ForgeScheduler   CPM critical path · N workers · retries
+    │       ├── PipelineRouter    scene_type → kling / cogvideo / seedance
+    │       └── ColorCalibrator   last-frame histogram match for i2v
+    ├── VLM Validator    optional frame consistency check
+    └── StreamAssembler  ffmpeg concat → final.mp4
+```
+
+---
+
+## 📁 Project structure
 
 ```
 forge/
-  compiler/            # Story → DAG (LLM-driven)
-  providers/           # LLM / ImageGen / VLM abstractions
-  scheduler/           # DAG topology + CPM scheduling
-  generation/          # Video backend pipelines
-  continuity/          # Cross-model color calibration
-  assets/              # Reference image generation + cache
-  validation/          # VLM frame consistency check
-  assembler/           # Streaming video concatenation
-  cli.py               # forge CLI
-  webui/               # Gradio Web UI
-forge.yaml             # Config
-examples/              # Sample stories
-tests/                 # pytest suite (20 tests, no API keys needed)
-benchmarks/            # Parallel vs serial speedup charts
+  compiler/      # Story → DAG (LLM-driven)
+  providers/     # LLM / ImageGen / VLM abstractions
+  scheduler/     # DAG topology + CPM scheduling
+  generation/    # Video backend pipelines
+  continuity/    # Cross-model color calibration
+  assets/        # Reference image generation + cache
+  validation/    # VLM frame consistency check
+  assembler/     # Streaming video concatenation
+  cli.py
+  webui/
+forge.yaml
+examples/
+tests/         # 20 tests, no API keys needed
+benchmarks/
 ```
 
 ---
@@ -277,9 +224,7 @@ benchmarks/            # Parallel vs serial speedup charts
 
 - [x] Multi-model semantic routing by scene type
 - [x] Cross-model color calibration (histogram matching)
-- [x] Pluggable LLM providers (OpenAI / Anthropic / DeepSeek)
-- [x] Pluggable ImageGen providers (DALL·E / Flux)
-- [x] Pluggable VLM validators (GPT-4o / Claude Vision)
+- [x] Pluggable LLM / ImageGen / VLM providers
 - [x] CPM scheduling with backend-aware duration estimates
 - [x] forge.yaml unified config
 - [x] Gradio Web UI
@@ -294,7 +239,7 @@ benchmarks/            # Parallel vs serial speedup charts
 
 ## 🤝 Contributing
 
-PRs and issues welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+PRs and issues welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
