@@ -60,11 +60,7 @@ class CogVideoPipeline(BasePipeline):
 
         dtype = torch.float16 if self.dtype == "float16" else torch.bfloat16
         pipe = CogVideoXPipeline.from_pretrained(self.model_id, torch_dtype=dtype)
-        if self.device == "auto":
-            pipe.enable_model_cpu_offload()
-        else:
-            pipe = pipe.to(self.device)
-            pipe.enable_sequential_cpu_offload()
+        pipe.enable_sequential_cpu_offload()  # most aggressive: layers offloaded one at a time
         pipe.vae.enable_slicing()
         pipe.vae.enable_tiling()
         self._t2v_pipe = pipe
@@ -81,12 +77,8 @@ class CogVideoPipeline(BasePipeline):
         try:
             pipe = CogVideoXImageToVideoPipeline.from_pretrained(i2v_model, torch_dtype=dtype)
         except Exception:
-            # Fall back to t2v if i2v variant not found
             return None
-        if self.device == "auto":
-            pipe.enable_model_cpu_offload()
-        else:
-            pipe = pipe.to(self.device)
+        pipe.enable_sequential_cpu_offload()
         pipe.vae.enable_slicing()
         pipe.vae.enable_tiling()
         self._i2v_pipe = pipe
@@ -143,7 +135,7 @@ class CogVideoPipeline(BasePipeline):
             prompt=prompt,
             num_frames=_NUM_FRAMES,
             guidance_scale=6.0,
-            num_inference_steps=50,
+            num_inference_steps=25,  # reduced from 50 for 8GB VRAM
         )
         frames = result.frames[0]
         self._save_video(frames, out_path)
@@ -160,7 +152,7 @@ class CogVideoPipeline(BasePipeline):
             image=image,
             num_frames=_NUM_FRAMES,
             guidance_scale=6.0,
-            num_inference_steps=50,
+            num_inference_steps=25,  # reduced from 50 for 8GB VRAM
         )
         frames = result.frames[0]
         self._save_video(frames, out_path)

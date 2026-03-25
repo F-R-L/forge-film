@@ -6,14 +6,12 @@
 
 Forge orchestrates Kling, CogVideoX, Seedance, and any video backend into one coherent film — fully open source.
 
-一个故事，多个 AI 模型，零手动拼接。Forge 将 Kling、CogVideoX、Seedance 及任意视频后端编排成一部连贯影片——完全开源。
-
 [![CI](https://github.com/F-R-L/forge-film/actions/workflows/ci.yml/badge.svg)](https://github.com/F-R-L/forge-film/actions)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.0-green)](https://github.com/F-R-L/forge-film)
 
-[English](#-why-forge) | [快速开始](#-quickstart--快速开始)
+[English](#-why-forge) | [中文文档](README.zh.md)
 
 </div>
 
@@ -21,38 +19,38 @@ Forge orchestrates Kling, CogVideoX, Seedance, and any video backend into one co
 
 ## ⚡ Why Forge?
 
-2026 年有 Kling 3.0、Seedance 2.0、Sora 2、Veo 3、CogVideoX、Wan 2.6 等 6+ 个主流视频模型，各有所长。业界共识是按场景需求混用——对话戏用 Kling、风景空镜用 CogVideoX、动作戏用 Seedance。
+In 2026, there are 6+ mainstream video models — Kling 3.0, Seedance 2.0, Sora 2, Veo 3, CogVideoX, Wan 2.6 — each with different strengths. The industry consensus is to mix them by scene type: Kling for dialogue, CogVideoX for landscapes, Seedance for action.
 
-但实际操作时，创作者要当"人肉调度器"：
+But in practice, creators end up as the "human scheduler":
 
-- 自己判断每个场景适合哪个模型
-- 分别登录不同平台 / 调用不同 API
-- 手动下载中间帧、传给下一个场景做 i2v
-- 手动校色（Kling 和 CogVideoX 的色调天然不同）
-- 手动用剪辑软件拼接
+- Manually decide which model fits each scene
+- Log in to different platforms / call different APIs
+- Download intermediate frames and pass them to the next scene for i2v
+- Manually color-correct (Kling and CogVideoX have naturally different color profiles)
+- Manually stitch clips in an editor
 
-**一个 8 场景的短片，光是在不同平台之间来回操作就能耗掉大半天。**
+**An 8-scene short film can eat half a day just switching between platforms.**
 
-Forge 把这整条流程自动化：
+Forge automates the entire pipeline:
 
-1. **Story → DAG** — GPT-4o（或 Claude / DeepSeek）将故事编译为场景有向无环图，识别因果依赖与可并行的场景
-2. **Scene-type routing** — 对话戏走 Kling、风景空镜走 CogVideoX（本地免费）、动作戏走 Seedance，路由规则完全可配置
-3. **CPM priority scheduling** — 关键路径法找出最长依赖链，优先调度阻塞最多下游的场景，N 个 worker 并行生成
-4. **Cross-model continuity** — 当场景 B 依赖场景 A 且两者用了不同模型时，自动提取 A 的最后一帧、做色彩校准（直方图匹配），再传给 B 作为 i2v 起始图像
-5. **Streaming assembly** — 场景完成一个拼一个，归一化分辨率和帧率，输出 final.mp4
+1. **Story → DAG** — GPT-4o (or Claude / DeepSeek) compiles your story into a scene dependency graph, identifying causal dependencies and parallelizable scenes
+2. **Scene-type routing** — dialogue goes to Kling, landscapes to CogVideoX (free, local), action to Seedance — fully configurable routing rules
+3. **CPM priority scheduling** — Critical Path Method finds the longest dependency chain, prioritizes scenes that block the most downstream work, N workers generate in parallel
+4. **Cross-model continuity** — when scene B depends on scene A and they use different models, Forge extracts A's last frame, applies color calibration (histogram matching), and passes it to B as the i2v seed image
+5. **Streaming assembly** — clips are concatenated as each scene completes, normalized to a common resolution and frame rate, output to `final.mp4`
 
 ---
 
-## 🆚 How Forge compares
+## 🆚 How Forge Compares
 
-| | Forge | Agent Opus (OpusClip) | Seedance 原生多镜头 | FilmAgent |
+| | Forge | OpusClip Agent | Seedance Multi-shot | FilmAgent |
 |---|---|---|---|---|
-| 开源 | ✅ MIT | ❌ 闭源 SaaS | ❌ | ✅ 学术原型 |
-| 本地部署 | ✅ | ❌ | ❌ | 部分 |
-| 多模型混用 | ✅ 跨模型编排 | ✅ 但不可控 | ❌ 单模型 | ❌ 3D虚拟空间 |
-| 跨模型色彩校准 | ✅ | 未知 | N/A | N/A |
-| 可插拔后端 | ✅ 全栈四层 | ❌ | ❌ | ❌ |
-| 数据安全 | ✅ 数据不出机器 | ❌ 过第三方 | ❌ | 部分 |
+| Open source | ✅ MIT | ❌ Closed SaaS | ❌ | ✅ Research prototype |
+| Local deployment | ✅ | ❌ | ❌ | Partial |
+| Multi-model mixing | ✅ Cross-model orchestration | ✅ But not configurable | ❌ Single model | ❌ 3D virtual space |
+| Cross-model color calibration | ✅ | Unknown | N/A | N/A |
+| Pluggable backends | ✅ Full 4-layer stack | ❌ | ❌ | ❌ |
+| Data privacy | ✅ Data never leaves your machine | ❌ Third-party | ❌ | Partial |
 
 ---
 
@@ -61,42 +59,55 @@ Forge 把这整条流程自动化：
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         forge.yaml                              │
-│  llm: openai/anthropic/deepseek   → story compiler             │
-│  imagegen: openai/flux/mock       → asset reference images      │
-│  validator: openai/anthropic/mock → frame consistency check     │
-│  routing: {scene_type → backend}  → video generation           │
-└──────┬──────────┬──────────┬──────────┬──────────────────────  ┘
-       │          │          │          │
-       ▼          ▼          ▼          ▼
-  LLMProvider  ImageGen   VLMProvider  Video Backends
-  OpenAI       DALL·E     GPT-4o       Kling (light/heavy)
-  Anthropic    Flux       Claude       CogVideoX
-  DeepSeek     Mock       Mock         Seedance / Wan / Mock
-       │          │          │          │
-       ▼          ▼          │          ▼
-  VisionCompiler AssetFoundry│     ForgeScheduler
-  (story→DAG)   (ref images) │     (CPM + DAG + N workers)
-       │          │          │          │
-       └──────────┴──────────┴──────────┘
-                         │
-              CrossModel Continuity
-              (color calibration)
-                         │
-                         ▼
-               StreamAssembler → final.mp4
-               (normalized 1280×720 @ 24fps)
+│              (LLM · ImageGen · Routing · Workers)               │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+          ┌─────────────▼──────────────┐
+          │     VisionCompiler          │  story text → ProductionPlan
+          │  (LLM: GPT-4o/Claude/DS)   │  scenes + assets + DAG
+          └─────────────┬──────────────┘
+                        │
+          ┌─────────────▼──────────────┐
+          │      AssetFoundry          │  generate reference images
+          │  (ImageGen: DALL·E/Flux)   │  per-character, per-location
+          └─────────────┬──────────────┘
+                        │
+          ┌─────────────▼──────────────┐
+          │      ForgeScheduler        │  CPM critical path
+          │  workers=N, retries=M      │  parallel scene dispatch
+          └──┬──────────────────┬──────┘
+             │                  │
+   ┌─────────▼──────┐  ┌───────▼────────┐
+   │ PipelineRouter │  │ ColorCalibrator │  histogram matching
+   │ scene_type →   │  │ last-frame i2v  │  cross-model continuity
+   │ kling/cogvideo │  └────────────────┘
+   │ /seedance/...  │
+   └─────────┬──────┘
+             │
+   ┌─────────▼──────────────────────────┐
+   │          Video Backends             │
+   │  KlingLight · KlingHeavy           │
+   │  CogVideoXPipeline (local GPU)     │
+   │  MockPipeline (no API key needed)  │
+   └─────────┬──────────────────────────┘
+             │
+   ┌─────────▼──────────────────────────┐
+   │  VLM Validator (GPT-4o/Claude)     │  optional frame check
+   └─────────┬──────────────────────────┘
+             │
+   ┌─────────▼──────────────────────────┐
+   │       StreamAssembler              │  ffmpeg concat → final.mp4
+   └────────────────────────────────────┘
 ```
-
-每一层用户都能独立替换，互不影响。
 
 ---
 
-## 🚀 Quickstart | 快速开始
+## 🚀 Quickstart
 
 ### Install
 
 ```bash
-git clone https://github.com/F-R-L/forge-film.git
+git clone https://github.com/F-R-L/forge-film
 cd forge-film
 pip install -e .
 cp .env.example .env
@@ -104,7 +115,7 @@ cp .env.example .env
 
 ### Configure
 
-编辑 `forge.yaml`（已有默认值，可按需修改）：
+Edit `forge.yaml` (defaults work out of the box):
 
 ```yaml
 llm:
@@ -118,15 +129,15 @@ validator:
   provider: mock
 
 routing:
-  dialogue: kling_light     # 对话戏 → Kling v1
-  action: kling_heavy       # 动作戏 → Kling v1.5 Pro
-  landscape: cogvideo       # 风景空镜 → CogVideoX 本地免费
+  dialogue: kling_light     # dialogue scenes → Kling v1
+  action: kling_heavy       # action scenes → Kling v1.5 Pro
+  landscape: cogvideo       # landscapes → CogVideoX (free, local)
   product: kling_heavy
   transition: cogvideo
   default: mock
 ```
 
-在 `.env` 填入 API 密钥：
+Add API keys to `.env`:
 
 ```bash
 OPENAI_API_KEY=sk-...
@@ -137,20 +148,20 @@ KLING_API_SECRET=...
 ### Run
 
 ```bash
-# 用 mock 后端端到端测试（无需 API key）
+# End-to-end test with mock backend (no API keys needed)
 forge run examples/detective.txt --backend mock --workers 4
 
-# 多模型编排演示
+# Multi-model orchestration demo
 forge run examples/multi_backend_demo.txt --workers 4
 
-# 只编译，查看 DAG 和路由分配（不生成视频）
+# Compile only — inspect DAG and routing without generating video
 forge plan examples/detective.txt --scenes 6
 
-# 启动 Web UI
+# Launch Web UI
 forge webui
 ```
 
-### Use as a library
+### Use as a Library
 
 ```python
 from forge.config import ForgeConfig
@@ -171,7 +182,7 @@ results, failed = await scheduler.run(asset_map, output_dir="./output")
 
 ## ⚙️ Configuration Reference
 
-| forge.yaml key | Options | Default |
+| Key | Options | Default |
 |---|---|---|
 | `llm.provider` | `openai` \| `anthropic` \| `deepseek` | `openai` |
 | `imagegen.provider` | `openai` \| `flux` \| `mock` | `mock` |
@@ -181,7 +192,7 @@ results, failed = await scheduler.run(asset_map, output_dir="./output")
 | `scheduler.workers` | int | `4` |
 | `output.dir` | path | `./output` |
 
-All API keys go in `.env` or environment variables, never in `forge.yaml`.
+All API keys go in `.env` or environment variables — never in `forge.yaml`.
 
 ---
 
@@ -199,7 +210,7 @@ forge/
   assembler/           # Streaming video concatenation
   cli.py               # forge CLI
   webui/               # Gradio Web UI
-forge.yaml             # User config
+forge.yaml             # Config
 examples/              # Sample stories
 tests/                 # pytest suite (20 tests, no API keys needed)
 benchmarks/            # Parallel vs serial speedup charts
