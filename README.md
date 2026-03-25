@@ -23,19 +23,19 @@ Every existing AI film system — FilmAgent, MovieAgent, CoAgent — generates s
 
 现有的所有 AI 影视系统——FilmAgent、MovieAgent、CoAgent——全部**串行**生成：第2场等第1场，第3场等第2场，总等待时间是每个场景时间之和。
 
-Forge does something different:
+Forge's core contribution is applying **Critical Path Method (CPM) scheduling** to AI video generation — a scheduling discipline used in construction and manufacturing for decades, never before applied to multi-scene film generation.
 
-1. **Story → DAG**: GPT-4o compiles your story into a Directed Acyclic Graph, identifying which scenes depend on each other and which can run simultaneously.
-2. **CPM Scheduling**: Critical Path Method computes the longest dependency chain and assigns priorities — the scenes that block the most work run first.
-3. **Parallel Workers**: Independent scenes are dispatched to multiple workers simultaneously.
-4. **i2v Continuity**: The last frame of each scene is automatically extracted and passed to dependent scenes as the starting frame, ensuring visual continuity.
+Forge 的核心贡献是将**关键路径法（CPM）调度**应用于 AI 视频生成——这是建筑和制造业沿用数十年的调度方法，从未被用于多场景影片生成。
 
-Forge 的不同之处：
+1. **Story → DAG**: GPT-4o compiles your story into a Directed Acyclic Graph of scenes, identifying causal dependencies (a character entering a room must precede them sitting down) vs. truly parallel scenes (two simultaneous storylines).
+2. **CPM Priority Scheduling**: Critical Path Method computes the longest dependency chain. Scenes that block the most downstream work are dispatched first — minimizing total wall time, not just maximizing parallelism.
+3. **Parallel Workers**: Scenes with no pending dependencies run simultaneously across N workers.
+4. **DAG-Aware Frame Continuity**: When scene B depends on scene A in the DAG, Forge automatically extracts A's last frame and passes it as B's i2v starting image — continuity is propagated along causal edges, not applied globally. Parallel scenes remain independent.
 
-1. **故事 → DAG**：GPT-4o 将故事编译为有向无环图，识别哪些场景相互依赖、哪些可以同时运行。
-2. **CPM 调度**：关键路径算法计算最长依赖链并分配优先级——阻塞最多工作的场景最先执行。
-3. **并行 Worker**：独立场景同时分发给多个 worker 并行生成。
-4. **i2v 连续性**：每个场景完成后自动提取最后一帧，传递给下游场景作为起始帧，保证画面连续性。
+1. **故事 → DAG**：GPT-4o 将故事编译为场景有向无环图，识别因果依赖（角色走进房间必须先于坐下）与真正并行的场景（两条同时推进的故事线）。
+2. **CPM 优先级调度**：关键路径算法计算最长依赖链，阻塞最多下游工作的场景优先执行——目标是最小化总挂钟时间，而不仅仅是最大化并行度。
+3. **并行 Worker**：无待定依赖的场景跨 N 个 Worker 同时执行。
+4. **DAG 感知的帧连续性传播**：当场景 B 在 DAG 中依赖场景 A 时，Forge 自动提取 A 的最后一帧并作为 B 的 i2v 起始图像——连续性沿因果边传播，而非全局应用。并行场景保持各自独立。
 
 ![Forge vs Serial Gantt](assets/forge_gantt.webp)
 
@@ -159,7 +159,8 @@ Before scheduling, Forge statically validates the compiled DAG:
 | `forge/generation/router.py` | Route scenes to light/medium/heavy pipeline | 按复杂度路由到对应生成管线 |
 | `forge/generation/` | Mock / Kling light / Kling heavy pipelines | 视频生成管线（mock/轻量/重量） |
 | `forge/validation/vlm_validator.py` | GPT-4o Vision consistency checker + retry | 视觉一致性验证 + 自动重试 |
-| `forge/assembler/stream_assembler.py` | Streaming moviepy concatenation | 流式视频拼接 |
+| `forge/generation/cogvideo_pipeline.py` | CogVideoX local t2v/i2v, no API key needed | 本地 CogVideoX 推理，无需 API Key |
+| `forge/webui/app.py` | Gradio Web UI with DAG visualization | Gradio Web 界面，含 DAG 可视化 |
 
 ---
 
@@ -173,7 +174,7 @@ forge run STORY_FILE [OPTIONS]
 Options:
   --scenes     INTEGER  Number of scenes to generate    [default: 6]
   --workers    INTEGER  Parallel worker count            [default: 4]
-  --backend    TEXT     mock | kling                    [default: mock]
+  --backend    TEXT     mock | kling | cogvideo         [default: mock]
   --output     PATH     Output directory                [default: ./output]
   --no-validate         Skip VLM validation
 ```
@@ -185,9 +186,24 @@ Options:
 # Mock 后端（无需 API Key）——测试调度逻辑
 forge run examples/detective.txt --backend mock --workers 4
 
-# Kling backend — real video generation
-# Kling 后端——真实视频生成
+# CogVideoX local backend — no API key, runs on GPU/CPU
+# CogVideoX 本地后端——无需 API Key，在本地 GPU/CPU 上运行
+pip install forge-film[local]
+forge run examples/romance.txt --backend cogvideo --workers 2
+
+# Kling cloud backend — real video generation
+# Kling 云端后端——真实视频生成
 forge run examples/romance.txt --backend kling --workers 2 --scenes 8
+```
+
+### `forge webui` — Launch Web UI | 启动 Web 界面
+
+```bash
+# Launch Gradio UI at http://localhost:7860
+forge webui
+
+# Public share link (useful for remote servers)
+forge webui --share
 ```
 
 ### `forge plan` — Preview DAG | 预览 DAG
@@ -294,6 +310,7 @@ forge-film/
 │   │   ├── mock_pipeline.py     # Mock (no API key needed)
 │   │   ├── light_pipeline.py    # Kling v1 standard 5s
 │   │   ├── heavy_pipeline.py    # Kling v1.5 pro 10s
+│   │   ├── cogvideo_pipeline.py # CogVideoX local (no API key)
 │   │   └── router.py            # complexity → pipeline routing
 │   ├── assets/
 │   │   ├── foundry.py           # Parallel asset image generation
@@ -302,7 +319,8 @@ forge-film/
 │   │   └── vlm_validator.py     # GPT-4o Vision frame consistency check
 │   ├── assembler/
 │   │   └── stream_assembler.py  # Streaming moviepy concatenation
-│   ├── config.py                # Pydantic settings
+│   ├── webui/
+│   │   └── app.py               # Gradio Web UI (forge webui)
 │   └── cli.py                   # Typer CLI entry point
 ├── benchmarks/
 │   ├── mock_runner.py           # Parallel vs serial benchmark
@@ -323,11 +341,13 @@ forge-film/
 
 ## 🗺️ Roadmap | 开发计划
 
-- [ ] Seedance / Wan video backend support | 接入 Seedance / Wan 后端
-- [ ] Web UI for DAG visualization | DAG 可视化 Web 界面
+- [x] Gradio Web UI (`forge webui`) | Gradio Web 界面
+- [x] CogVideoX local backend (no API key) | CogVideoX 本地后端（无需 API Key）
+- [x] Scheduler retry + parallelism stats | 调度器重试 + 并行效率统计
+- [ ] Seedance / Wan2.1 backend support | 接入 Seedance / Wan2.1 后端
 - [ ] GPU-accelerated local video assembly | 本地 GPU 加速视频拼接
 - [ ] Story template library | 故事模板库
-- [ ] Multi-language story support | 多语言故事支持
+- [ ] Real benchmark results with Kling API | 基于真实 Kling API 的 benchmark 数据
 
 ---
 
