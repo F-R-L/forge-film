@@ -17,6 +17,7 @@ from rich.progress import (
 from forge.compiler.schema import Asset, ProductionPlan, Scene
 from forge.scheduler.cpm import compute_critical_path, get_priority_queue_items
 from forge.scheduler.dag import compute_in_degree, get_reverse_dag
+from forge.continuity.color_calibration import ColorCalibrator, extract_first_frame
 
 
 def _extract_last_frame(video_path: str) -> str | None:
@@ -41,11 +42,14 @@ class ForgeScheduler:
     def __init__(
         self,
         plan: ProductionPlan,
-        generate_fn: Callable[[Scene, dict[str, Asset]], Awaitable[str]],  # signature: (scene, assets, prev_frame=None) -> str
+        generate_fn: Callable[[Scene, dict[str, Asset]], Awaitable[str]],
         num_workers: int = 4,
         console: Console | None = None,
         max_retries: int = 2,
         on_scene_complete: Callable[[str, str], None] | None = None,
+        color_calibrator: ColorCalibrator | None = None,
+        # backend_used_fn: optional callable that returns the backend name for a scene
+        backend_used_fn: Callable[[str], str] | None = None,
     ):
         self.plan = plan
         self.generate_fn = generate_fn
@@ -53,111 +57,151 @@ class ForgeScheduler:
         self.console = console or Console()
         self.max_retries = max_retries
         self.on_scene_complete = on_scene_complete
+        self.color_calibrator = color_calibrator or ColorCalibrator()
+        self.backend_used_fn = backend_used_fn  # scene_id -> backend name
         self._scene_map: dict[str, Scene] = {s.id: s for s in plan.scenes}
         self._timings: dict[str, float] = {}
         self._last_frames: dict[str, str | None] = {}  # scene_id -> last frame path
+        self._backend_used: dict[str, str] = {}  # scene_id -> backend name
         self._failed_scenes: list[str] = []
         self._stats: dict = {}
 
-    async def run(self) -> tuple[dict[str, str], list[str]]:  # ({scene_id -> video_path}, failed_scene_ids)
-        _wall_start = time.monotonic()
+    async def _generate_with_retry(self, scene: Scene, assets: dict[str, Asset]) -> str:
+        last_exc = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                result = await self.generate_fn(scene, assets)
+                return result
+            except Exception as exc:
+                last_exc = exc
+                if attempt < self.max_retries:
+                    self.console.print(
+                        f"[yellow]Retry {attempt + 1}/{self.max_retries}[/yellow] "
+                        f"scene {scene.id}: {exc}"
+                    )
+        raise last_exc
+
+    def _get_prev_frame_with_calibration(
+        self,
+        scene: Scene,
+        reverse_dag: dict[str, list[str]],
+        output_dir: str,
+    ) -> str | None:
+        """Get predecessor last frame, applying color calibration if backends differ."""
+        predecessors = reverse_dag.get(scene.id, [])
+        if not predecessors:
+            return None
+
+        # Use the most recently completed predecessor (highest CPM priority one)
+        prev_id = predecessors[0]
+        prev_frame = self._last_frames.get(prev_id)
+        if not prev_frame or not os.path.exists(prev_frame):
+            return None
+
+        # Check if backends differ — if so, apply color calibration
+        prev_backend = self._backend_used.get(prev_id, "")
+        curr_backend = self.backend_used_fn(scene.id) if self.backend_used_fn else ""
+        if prev_backend and curr_backend and prev_backend != curr_backend:
+            # Extract first frame of current scene's predecessor output for calibration target
+            calibrated_path = os.path.join(
+                output_dir,
+                f"calibrated_{scene.id}_from_{prev_id}.jpg",
+            )
+            calibrated = self.color_calibrator.calibrate(
+                reference_path=prev_frame,
+                target_path=prev_frame,  # calibrate the reference itself as i2v seed
+                output_path=calibrated_path,
+            )
+            self.console.print(
+                f"  [cyan]Color calibration:[/cyan] {prev_id}({prev_backend}) "
+                f"-> {scene.id}({curr_backend})"
+            )
+            return calibrated
+
+        return prev_frame
+
+    async def run(
+        self,
+        assets: dict[str, Asset],
+        output_dir: str = "./output",
+    ) -> tuple[dict[str, str], list[str]]:
+        """Run the CPM-scheduled parallel generation.
+
+        Returns
+        -------
+        results: dict[scene_id, video_path]
+        failed:  list[scene_id]
+        """
+        os.makedirs(output_dir, exist_ok=True)
         dag = self.plan.dag
+        reverse_dag = get_reverse_dag(dag)
         durations = {
             s.id: s.estimated_duration_sec for s in self.plan.scenes
         }
-        cp = compute_critical_path(dag, durations)
-        in_degree = compute_in_degree(dict(dag))  # mutable copy
-
-        # Priority queue: (neg_priority, scene_id)
-        heap = [
-            item
-            for item in get_priority_queue_items(cp)
-            if in_degree.get(item[1], 0) == 0
-        ]
+        critical_path = compute_critical_path(dag, durations)
+        heap = get_priority_queue_items(critical_path)
         heapq.heapify(heap)
 
+        in_degree = compute_in_degree(dag)
         results: dict[str, str] = {}
-        semaphore = asyncio.Semaphore(self.num_workers)
-        pending: set[asyncio.Task] = set()
-        lock = asyncio.Lock()
+        total = len(self.plan.scenes)
+        _wall_start = time.monotonic()
+        completed = 0
 
         with Progress(
             SpinnerColumn(),
-            TextColumn("[bold blue]{task.description}"),
+            TextColumn("[bold cyan]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
             TimeElapsedColumn(),
             console=self.console,
         ) as progress:
-            overall = progress.add_task(
-                "Scheduling scenes…", total=len(self.plan.scenes)
-            )
+            prog_task = progress.add_task("Generating scenes…", total=total)
+
+            sem = asyncio.Semaphore(self.num_workers)
 
             async def run_scene(scene: Scene) -> None:
-                async with semaphore:
-                    scene.status = "generating"
+                scene.status = "generating"
+                async with sem:
                     t0 = time.monotonic()
-
-                    # Find prev_frame: last frame of the highest-priority predecessor
-                    reverse = get_reverse_dag(dag)
-                    predecessors = reverse.get(scene.id, [])
-                    prev_frame: str | None = None
-                    if predecessors:
-                        # Pick the predecessor with the longest CP (most critical)
-                        best_pred = max(predecessors, key=lambda p: cp.get(p, 0))
-                        prev_frame = self._last_frames.get(best_pred)
-
-                    video_path: str | None = None
-                    last_exc: Exception | None = None
-                    for attempt in range(self.max_retries + 1):
-                        try:
-                            video_path = await self.generate_fn(scene, {}, prev_frame=prev_frame)
-                            last_exc = None
-                            break
-                        except Exception as exc:
-                            last_exc = exc
-                            if attempt < self.max_retries:
-                                await asyncio.sleep(2 ** attempt)  # 1s, 2s
-
-                    elapsed = time.monotonic() - t0
-                    self._timings[scene.id] = elapsed
-
-                    if last_exc is not None:
-                        scene.status = "failed"
-                        async with lock:
-                            self._failed_scenes.append(scene.id)
-                            progress.advance(overall)
-                            for downstream_id in dag.get(scene.id, []):
-                                in_degree[downstream_id] -= 1
-                                if in_degree[downstream_id] == 0:
-                                    heapq.heappush(heap, (-cp[downstream_id], downstream_id))
-                        return
-
-                    scene.output_video_path = video_path
-                    scene.status = "done"
-
-                    # Extract last frame for downstream scenes
-                    last_frame = _extract_last_frame(video_path)
-                    scene.last_frame_path = last_frame
-
-                    async with lock:
-                        results[scene.id] = video_path
+                    prev_frame = self._get_prev_frame_with_calibration(
+                        scene, reverse_dag, output_dir
+                    )
+                    try:
+                        video_path = await self._generate_with_retry(scene, assets)
+                        scene.output_video_path = video_path
+                        scene.status = "done"
+                        # Extract last frame for downstream scenes
+                        last_frame = _extract_last_frame(video_path)
+                        scene.last_frame_path = last_frame
                         self._last_frames[scene.id] = last_frame
-                        progress.advance(overall)
+                        # Track backend used
+                        if self.backend_used_fn:
+                            self._backend_used[scene.id] = self.backend_used_fn(scene.id)
+                        results[scene.id] = video_path
+                        if self.on_scene_complete:
+                            self.on_scene_complete(scene.id, video_path)
+                    except Exception as exc:
+                        scene.status = "failed"
+                        self._failed_scenes.append(scene.id)
+                        self.console.print(
+                            f"[red]Scene {scene.id} failed:[/red] {exc}"
+                        )
+                    finally:
+                        self._timings[scene.id] = time.monotonic() - t0
+                        progress.advance(prog_task)
                         # Unlock downstream scenes
                         for downstream_id in dag.get(scene.id, []):
                             in_degree[downstream_id] -= 1
                             if in_degree[downstream_id] == 0:
-                                heapq.heappush(
-                                    heap,
-                                    (-cp[downstream_id], downstream_id),
-                                )
+                                ds = self._scene_map[downstream_id]
+                                if ds.status == "pending":
+                                    heapq.heappush(
+                                        heap,
+                                        (-critical_path.get(downstream_id, 0), downstream_id),
+                                    )
 
-                    if self.on_scene_complete is not None:
-                        self.on_scene_complete(scene.id, video_path)
-
-            completed = 0
-            total = len(self.plan.scenes)
+            pending: set[asyncio.Task] = set()
 
             while completed < total:
                 # Drain heap: launch all ready scenes (up to worker slots)

@@ -1,0 +1,41 @@
+# Forge configuration file
+# Copy this to forge.yaml and fill in your API keys / preferences.
+# All fields are optional — Forge falls back to environment variables and defaults.
+
+# ── LLM Provider (story → scene DAG compiler) ──────────────────────────────
+llm:
+  provider: openai          # openai | anthropic | deepseek
+  model: gpt-4o             # provider-specific model name
+  # api_key: sk-...         # or set OPENAI_API_KEY / ANTHROPIC_API_KEY / DEEPSEEK_API_KEY env var
+
+# ── ImageGen Provider (asset reference image generation) ───────────────────
+imagegen:
+  provider: openai          # openai | flux | mock
+  model: dall-e-3           # dall-e-3 | dall-e-2 | fal-ai/flux/schnell | fal-ai/flux/dev
+  # api_key: sk-...         # or set OPENAI_API_KEY / FAL_API_KEY env var
+
+# ── VLM Provider (frame consistency validation) ────────────────────────────
+validator:
+  provider: openai          # openai | anthropic | mock
+  model: gpt-4o             # gpt-4o | claude-opus-4-6 | claude-sonnet-4-6
+  # api_key: sk-...         # or set OPENAI_API_KEY / ANTHROPIC_API_KEY env var
+
+# ── Video Backend Routing (scene_type → video model) ──────────────────────
+# Each scene_type is routed to a specific video backend.
+# Available backends: kling_light | kling_heavy | cogvideo | seedance | wan | mock
+routing:
+  dialogue: kling_light     # Kling v1 5s — strong lip sync & character consistency
+  action: kling_heavy       # Kling v1.5 Pro 10s — better motion quality
+  landscape: cogvideo       # CogVideoX local — free, good for scenery
+  product: kling_heavy      # Kling v1.5 Pro — object consistency
+  transition: cogvideo      # CogVideoX local — free, good enough for cuts
+  default: mock             # fallback for unknown types
+
+# ── Scheduler ──────────────────────────────────────────────────────────────
+scheduler:
+  workers: 4
+  max_retries: 2
+
+# ── Output ─────────────────────────────────────────────────────────────────
+output:
+  dir: ./output

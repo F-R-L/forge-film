@@ -36,7 +36,7 @@ def test_scheduler_respects_dependencies():
         {"S1": ["S2"], "S2": []},
     )
     scheduler = ForgeScheduler(plan, tracked_generate, num_workers=4)
-    results, failed = asyncio.run(scheduler.run())
+    results, failed = asyncio.run(scheduler.run({}, output_dir="./output"))
     assert "S1" in results
     assert "S2" in results
     # S1 must be started before S2 completes
@@ -56,7 +56,7 @@ def test_scheduler_parallelism():
         {"S1": [], "S2": [], "S3": []},
     )
     scheduler = ForgeScheduler(plan, timed_generate, num_workers=4)
-    asyncio.run(scheduler.run())
+    asyncio.run(scheduler.run({}, output_dir="./output"))
     # All three should start nearly simultaneously (within 0.04s)
     times = list(start_times.values())
     assert max(times) - min(times) < 0.04
@@ -82,6 +82,6 @@ def test_scheduler_critical_path_priority():
         {"S1": ["S3"], "S2": ["S3"], "S3": []},
     )
     scheduler = ForgeScheduler(plan, ordered_generate, num_workers=1)
-    asyncio.run(scheduler.run())
+    asyncio.run(scheduler.run({}, output_dir="./output"))
     # With 1 worker and critical path priority, S2 should run before S1
     assert dispatch_order.index("S2") < dispatch_order.index("S1")

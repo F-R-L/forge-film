@@ -5,27 +5,25 @@ from rich.panel import Panel
 
 from forge.compiler.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 from forge.compiler.schema import ProductionPlan
+from forge.providers.llm import LLMProvider
 
 
 class VisionCompiler:
-    def __init__(self, client, model: str = "gpt-4o"):
-        self.client = client
-        self.model = model
+    def __init__(self, provider: LLMProvider, model: str | None = None):
+        self.provider = provider
+        self.model = model  # overrides provider default if set
         self.console = Console()
 
     async def compile(self, story: str, num_scenes: int = 6) -> ProductionPlan:
         user_prompt = USER_PROMPT_TEMPLATE.format(story=story, num_scenes=num_scenes)
 
-        response = await self.client.chat.completions.create(
+        raw = await self.provider.chat_completion(
+            SYSTEM_PROMPT,
+            user_prompt,
             model=self.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format={"type": "json_object"},
+            response_json=True,
         )
 
-        raw = response.choices[0].message.content
         data = json.loads(raw)
         plan = ProductionPlan(**data)
 
@@ -40,7 +38,6 @@ class VisionCompiler:
         if report.has_errors:
             raise ValueError(f"DAG validation failed: {report.summary()}")
 
-        # Summary
         total_duration = sum(s.estimated_duration_sec for s in plan.scenes)
         self.console.print(
             Panel(

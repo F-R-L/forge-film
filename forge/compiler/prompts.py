@@ -9,6 +9,7 @@ Output ONLY valid JSON matching this schema exactly. No markdown, no explanation
     {
       "id": "S1",
       "description": "detailed visual description of what happens in this scene",
+      "scene_type": "dialogue",
       "complexity": 3,
       "estimated_duration_sec": 30,
       "dependencies": [],
@@ -29,6 +30,12 @@ Output ONLY valid JSON matching this schema exactly. No markdown, no explanation
 }
 
 Rules:
+- scene_type must be one of: dialogue, action, landscape, product, transition
+  - dialogue: character conversation, close-up, monologue, static shots
+  - action: chase, fight, explosion, complex motion, crowd
+  - landscape: scenery, establishing shot, empty environment, aerial
+  - product: product showcase, object consistency required
+  - transition: montage, time-lapse, cut sequence
 - Scene complexity 1-3: dialogue/monologue/static shots
 - Scene complexity 4-6: crowd/movement/multi-character
 - Scene complexity 7-10: chase/fight/explosion
