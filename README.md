@@ -39,6 +39,49 @@ Forge automates the entire pipeline:
 4. **Cross-model continuity** — when scene B depends on scene A and they use different models, Forge extracts A's last frame, applies color calibration (histogram matching), and passes it to B as the i2v seed image
 5. **Streaming assembly** — clips are concatenated as each scene completes, normalized to a common resolution and frame rate, output to `final.mp4`
 
+### Serial vs Parallel: why CPM scheduling matters
+
+```mermaid
+gantt
+    title Serial (no Forge) — 6 scenes × 5 min = 30 min
+    dateFormat mm
+    axisFormat %M min
+    section Sequential
+    S1 :s1, 00, 5m
+    S2 :s2, after s1, 5m
+    S3 :s3, after s2, 5m
+    S4 :s4, after s3, 5m
+    S5 :s5, after s4, 5m
+    S6 :s6, after s5, 5m
+```
+
+```mermaid
+gantt
+    title Forge (CPM parallel) — critical path = 15 min
+    dateFormat mm
+    axisFormat %M min
+    section Worker 1
+    S1 (Kling)       :s1, 00, 5m
+    S3 (CogVideoX)   :s3, after s1, 5m
+    S5 (Seedance)    :s5, after s3, 5m
+    section Worker 2
+    S2 (Kling)       :s2, 00, 5m
+    S4 (CogVideoX)   :s4, after s2, 5m
+    S6 (Seedance)    :s6, after s4, 5m
+```
+
+### Cross-model continuity: how scenes stay connected
+
+```mermaid
+flowchart LR
+    A["Scene A\nKling v1\n(dialogue)"] -->|"extract\nlast frame"| B["ColorCalibrator\nhistogram matching"]
+    B -->|"color-corrected\nseed image"| C["Scene B\nCogVideoX\n(landscape)"]
+    C -->|"extract\nlast frame"| D["ColorCalibrator\nhistogram matching"]
+    D -->|"color-corrected\nseed image"| E["Scene C\nSeedance\n(action)"]
+    style B fill:#f0a500,color:#000
+    style D fill:#f0a500,color:#000
+```
+
 ---
 
 ## 🆚 How Forge Compares
@@ -168,6 +211,10 @@ forge plan examples/detective.txt --scenes 6
 # Launch Web UI
 forge webui
 ```
+
+### Web UI
+
+> Screenshot coming soon — run `forge webui` to launch the Gradio interface locally.
 
 ### Use as a Library
 
