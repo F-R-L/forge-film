@@ -64,7 +64,7 @@ class CogVideoPipeline(BasePipeline):
             pipe.enable_model_cpu_offload()
         else:
             pipe = pipe.to(self.device)
-        pipe.enable_sequential_cpu_offload()
+            pipe.enable_sequential_cpu_offload()
         pipe.vae.enable_slicing()
         pipe.vae.enable_tiling()
         self._t2v_pipe = pipe
