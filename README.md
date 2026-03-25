@@ -126,7 +126,7 @@ forge benchmark --scenes 8 --workers 4
         final.mp4
 ```
 
-![Story to DAG Visualization](assets/forge_dag.png)
+![Story to DAG Visualization](assets/forge_dag.webp)
 
 ### DAG Validator | DAG 验证器
 

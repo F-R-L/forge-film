@@ -44,16 +44,23 @@ class ForgeScheduler:
         generate_fn: Callable[[Scene, dict[str, Asset]], Awaitable[str]],  # signature: (scene, assets, prev_frame=None) -> str
         num_workers: int = 4,
         console: Console | None = None,
+        max_retries: int = 2,
+        on_scene_complete: Callable[[str, str], None] | None = None,
     ):
         self.plan = plan
         self.generate_fn = generate_fn
         self.num_workers = num_workers
         self.console = console or Console()
+        self.max_retries = max_retries
+        self.on_scene_complete = on_scene_complete
         self._scene_map: dict[str, Scene] = {s.id: s for s in plan.scenes}
         self._timings: dict[str, float] = {}
         self._last_frames: dict[str, str | None] = {}  # scene_id -> last frame path
+        self._failed_scenes: list[str] = []
+        self._stats: dict = {}
 
-    async def run(self) -> dict[str, str]:  # {scene_id -> video_path}
+    async def run(self) -> tuple[dict[str, str], list[str]]:  # ({scene_id -> video_path}, failed_scene_ids)
+        _wall_start = time.monotonic()
         dag = self.plan.dag
         durations = {
             s.id: s.estimated_duration_sec for s in self.plan.scenes
@@ -100,11 +107,34 @@ class ForgeScheduler:
                         best_pred = max(predecessors, key=lambda p: cp.get(p, 0))
                         prev_frame = self._last_frames.get(best_pred)
 
-                    video_path = await self.generate_fn(scene, {}, prev_frame=prev_frame)
+                    video_path: str | None = None
+                    last_exc: Exception | None = None
+                    for attempt in range(self.max_retries + 1):
+                        try:
+                            video_path = await self.generate_fn(scene, {}, prev_frame=prev_frame)
+                            last_exc = None
+                            break
+                        except Exception as exc:
+                            last_exc = exc
+                            if attempt < self.max_retries:
+                                await asyncio.sleep(2 ** attempt)  # 1s, 2s
+
                     elapsed = time.monotonic() - t0
+                    self._timings[scene.id] = elapsed
+
+                    if last_exc is not None:
+                        scene.status = "failed"
+                        async with lock:
+                            self._failed_scenes.append(scene.id)
+                            progress.advance(overall)
+                            for downstream_id in dag.get(scene.id, []):
+                                in_degree[downstream_id] -= 1
+                                if in_degree[downstream_id] == 0:
+                                    heapq.heappush(heap, (-cp[downstream_id], downstream_id))
+                        return
+
                     scene.output_video_path = video_path
                     scene.status = "done"
-                    self._timings[scene.id] = elapsed
 
                     # Extract last frame for downstream scenes
                     last_frame = _extract_last_frame(video_path)
@@ -122,6 +152,9 @@ class ForgeScheduler:
                                     heap,
                                     (-cp[downstream_id], downstream_id),
                                 )
+
+                    if self.on_scene_complete is not None:
+                        self.on_scene_complete(scene.id, video_path)
 
             completed = 0
             total = len(self.plan.scenes)
@@ -142,17 +175,26 @@ class ForgeScheduler:
                     pending, return_when=asyncio.FIRST_COMPLETED
                 )
                 completed += len(done)
-                # Re-raise exceptions
-                for t in done:
-                    if t.exception():
-                        raise t.exception()
+
+        wall_time = time.monotonic() - _wall_start
+        serial_equivalent = sum(self._timings.values())
+        self._stats = {
+            "total_wall_time": wall_time,
+            "parallelism_efficiency": serial_equivalent / wall_time if wall_time > 0 else 0.0,
+            "scenes_failed": len(self._failed_scenes),
+            "scenes_completed": len(results),
+        }
 
         self.console.print(
             f"[green]Scheduling complete.[/green] "
             f"Scenes: {total}, Workers: {self.num_workers}"
         )
-        return results
+        return results, self._failed_scenes
 
     @property
     def timings(self) -> dict[str, float]:
         return self._timings
+
+    @property
+    def stats(self) -> dict:
+        return self._stats

@@ -36,7 +36,7 @@ def test_scheduler_respects_dependencies():
         {"S1": ["S2"], "S2": []},
     )
     scheduler = ForgeScheduler(plan, tracked_generate, num_workers=4)
-    results = asyncio.run(scheduler.run())
+    results, failed = asyncio.run(scheduler.run())
     assert "S1" in results
     assert "S2" in results
     # S1 must be started before S2 completes

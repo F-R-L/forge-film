@@ -8,11 +8,6 @@ from forge.generation.base import BasePipeline
 from forge.generation.kling_auth import build_kling_jwt
 
 
-def _kling_jwt(api_key: str, api_secret: str) -> str:
-    """Compatibility shim — delegates to kling_auth.build_kling_jwt."""
-    return build_kling_jwt(api_key, api_secret)
-
-
 class LightPipeline(BasePipeline):
     """Kling text-to-video, 5s standard mode. Falls back to MockPipeline if no API key."""
 
@@ -46,7 +41,7 @@ class LightPipeline(BasePipeline):
             with open(prev_frame, "rb") as f:
                 body["image"] = base64.b64encode(f.read()).decode()
 
-        token = _kling_jwt(self.api_key, self.api_secret)
+        token = build_kling_jwt(self.api_key, self.api_secret)
         async with httpx.AsyncClient(timeout=300) as client:
             resp = await client.post(
                 "https://api.klingai.com/v1/videos/text2video",

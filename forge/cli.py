@@ -16,7 +16,7 @@ def run(
     story_file: Path = typer.Argument(..., help="Path to story text file"),
     scenes: int = typer.Option(6, help="Number of scenes"),
     workers: int = typer.Option(4, help="Parallel worker count"),
-    backend: str = typer.Option("mock", help="Video backend: mock|kling"),
+    backend: str = typer.Option("mock", help="Video backend: mock|kling|cogvideo"),
     output: Path = typer.Option(Path("./output"), help="Output directory"),
     no_validate: bool = typer.Option(False, "--no-validate", help="Skip VLM validation"),
 ):
@@ -74,6 +74,11 @@ async def _run(
     if backend == "kling":
         light = LightPipeline()
         heavy = HeavyPipeline()
+    elif backend == "cogvideo":
+        from forge.generation.cogvideo_pipeline import CogVideoPipeline
+        cogvideo = CogVideoPipeline()
+        light = cogvideo
+        heavy = cogvideo
     else:
         light = mock
         heavy = mock
@@ -99,7 +104,10 @@ async def _run(
         _generate_fn = generate_fn
 
     scheduler = ForgeScheduler(plan, _generate_fn, num_workers=workers, console=console)
-    results = await scheduler.run()
+    results, failed_scenes = await scheduler.run()
+
+    if failed_scenes:
+        console.print(f"[red]Failed scenes: {failed_scenes}[/red]")
 
     # Step 6: Assemble
     timeline = [s.id for s in plan.scenes]  # narrative order
@@ -162,6 +170,17 @@ async def _plan(story_file: Path, num_scenes: int):
     compiler = VisionCompiler(client)
     plan = await compiler.compile(story, num_scenes)
     _print_dag(plan)
+
+
+@app.command()
+def webui(
+    host: str = typer.Option("0.0.0.0", help="Host to bind"),
+    port: int = typer.Option(7860, help="Port to listen on"),
+    share: bool = typer.Option(False, "--share", help="Create a public Gradio share link"),
+):
+    """Launch the Gradio Web UI for Forge."""
+    from forge.webui.app import launch
+    launch(host=host, port=port, share=share)
 
 
 @app.command()
