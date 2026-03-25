@@ -141,7 +141,7 @@ Before scheduling, Forge statically validates the compiled DAG:
 | Missing continuity edge | 缺失的连续性边（同角色运动场景） | Auto-fix + Warn | 自动补边 + 警告 |
 | Isolated interior node | 孤立的中间节点 | Warn | 警告 |
 
-![i2v Frame Continuity](assets/i2v_continuity.png)
+![DAG-Aware Frame Continuity — last frame propagated along causal edges](assets/i2v_continuity.webp)
 
 ---
 
