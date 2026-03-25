@@ -37,16 +37,7 @@ Forge 的不同之处：
 3. **并行 Worker**：独立场景同时分发给多个 worker 并行生成。
 4. **i2v 连续性**：每个场景完成后自动提取最后一帧，传递给下游场景作为起始帧，保证画面连续性。
 
-```
-// All other systems / 所有其他系统
-Serial:   [S1]──[S2]──[S3]──[S4]──[S5]──[S6]
-           wait   wait  wait  wait  wait  done
-
-// Forge — parallel branches / 并行分支
-Forge:    [S1]──[S3]──[S5]
-          [S2]──[S4]──[S6]
-           ^ these run simultaneously / 同时执行
-```
+![Forge vs Serial Gantt](assets/forge_gantt.png)
 
 > Speedup scales with scene independence in your story's DAG. A story with 3 fully independent branches runs in ⅓ the time.
 >
@@ -135,6 +126,8 @@ forge benchmark --scenes 8 --workers 4
         final.mp4
 ```
 
+![Story to DAG Visualization](assets/forge_dag.png)
+
 ### DAG Validator | DAG 验证器
 
 Before scheduling, Forge statically validates the compiled DAG:
@@ -147,6 +140,8 @@ Before scheduling, Forge statically validates the compiled DAG:
 | Self-loop | 自环 | Auto-fix | 自动修复 |
 | Missing continuity edge | 缺失的连续性边（同角色运动场景） | Auto-fix + Warn | 自动补边 + 警告 |
 | Isolated interior node | 孤立的中间节点 | Warn | 警告 |
+
+![i2v Frame Continuity](assets/i2v_continuity.png)
 
 ---
 
@@ -210,6 +205,8 @@ forge plan examples/romance.txt --scenes 6
 # 对比并行 vs 串行执行时间
 forge benchmark --scenes 8 --workers 4
 ```
+
+![Benchmark Speedup](assets/forge_benchmark.png)
 
 ---
 

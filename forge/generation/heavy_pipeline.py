@@ -6,13 +6,15 @@ import httpx
 
 from forge.compiler.schema import Asset, Scene
 from forge.generation.base import BasePipeline
+from forge.generation.kling_auth import build_kling_jwt
 
 
 class HeavyPipeline(BasePipeline):
     """Kling text-to-video, 10s professional mode. Falls back to MockPipeline if no API key."""
 
-    def __init__(self, api_key: str = ""):
+    def __init__(self, api_key: str = "", api_secret: str = ""):
         self.api_key = api_key or os.environ.get("KLING_API_KEY", "")
+        self.api_secret = api_secret or os.environ.get("KLING_API_SECRET", "")
 
     async def generate(
         self,
@@ -50,10 +52,11 @@ class HeavyPipeline(BasePipeline):
             with open(ref_img, "rb") as f:
                 body["reference_image"] = base64.b64encode(f.read()).decode()
 
+        token = build_kling_jwt(self.api_key, self.api_secret)
         async with httpx.AsyncClient(timeout=300) as client:
             resp = await client.post(
                 "https://api.klingai.com/v1/videos/text2video",
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers={"Authorization": f"Bearer {token}"},
                 json=body,
             )
             resp.raise_for_status()
@@ -72,12 +75,12 @@ class HeavyPipeline(BasePipeline):
             await asyncio.sleep(5)
             resp = await client.get(
                 f"https://api.klingai.com/v1/videos/text2video/{task_id}",
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers={"Authorization": f"Bearer {build_kling_jwt(self.api_key, self.api_secret)}"},
             )
             resp.raise_for_status()
             data = resp.json()["data"]
             if data["task_status"] == "succeed":
                 return data["task_result"]["videos"][0]["url"]
             elif data["task_status"] == "failed":
-                raise RuntimeError(f"Kling task failed: {data}")
+                raise RuntimeError(f"Kling task failed: status={data.get('task_status')}, id={data.get('task_id')}")
         raise TimeoutError("Kling task timed out after 15 minutes")

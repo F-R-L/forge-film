@@ -41,7 +41,7 @@ class ForgeScheduler:
     def __init__(
         self,
         plan: ProductionPlan,
-        generate_fn: Callable[[Scene, dict[str, Asset]], Awaitable[str]],
+        generate_fn: Callable[[Scene, dict[str, Asset]], Awaitable[str]],  # signature: (scene, assets, prev_frame=None) -> str
         num_workers: int = 4,
         console: Console | None = None,
     ):

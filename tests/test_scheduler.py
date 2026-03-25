@@ -18,7 +18,7 @@ def make_plan(scenes_def: list[dict], dag: dict[str, list[str]]) -> ProductionPl
     return ProductionPlan(title="test", scenes=scenes, assets=[], dag=dag)
 
 
-async def fast_generate(scene: Scene, assets: dict) -> str:
+async def fast_generate(scene: Scene, assets: dict, prev_frame=None) -> str:
     await asyncio.sleep(0.01)
     return f"output/{scene.id}.mp4"
 
@@ -26,7 +26,7 @@ async def fast_generate(scene: Scene, assets: dict) -> str:
 def test_scheduler_respects_dependencies():
     order = []
 
-    async def tracked_generate(scene: Scene, assets: dict) -> str:
+    async def tracked_generate(scene: Scene, assets: dict, prev_frame=None) -> str:
         order.append(scene.id)
         await asyncio.sleep(0.01)
         return f"output/{scene.id}.mp4"
@@ -46,7 +46,7 @@ def test_scheduler_respects_dependencies():
 def test_scheduler_parallelism():
     start_times = {}
 
-    async def timed_generate(scene: Scene, assets: dict) -> str:
+    async def timed_generate(scene: Scene, assets: dict, prev_frame=None) -> str:
         start_times[scene.id] = asyncio.get_event_loop().time()
         await asyncio.sleep(0.05)
         return f"output/{scene.id}.mp4"
@@ -66,7 +66,7 @@ def test_scheduler_critical_path_priority():
     """Critical path scene should be dispatched first."""
     dispatch_order = []
 
-    async def ordered_generate(scene: Scene, assets: dict) -> str:
+    async def ordered_generate(scene: Scene, assets: dict, prev_frame=None) -> str:
         dispatch_order.append(scene.id)
         await asyncio.sleep(0.01)
         return f"output/{scene.id}.mp4"

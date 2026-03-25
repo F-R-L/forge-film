@@ -83,7 +83,22 @@ async def _run(
         return await router.generate(scene, asset_map, output_dir, prev_frame=prev_frame)
 
     # Step 5: Schedule
-    scheduler = ForgeScheduler(plan, generate_fn, num_workers=workers, console=console)
+    if not no_validate and openai_key:
+        from forge.validation.vlm_validator import VLMValidator
+        import openai as _openai
+        _client = _openai.AsyncOpenAI(api_key=openai_key)
+        validator = VLMValidator(_client)
+
+        async def validated_generate_fn(scene, assets, prev_frame=None):
+            async def _gen(s, a):
+                return await router.generate(s, a, output_dir, prev_frame=prev_frame)
+            return await validator.validate_with_retry(scene, asset_map, _gen)
+
+        _generate_fn = validated_generate_fn
+    else:
+        _generate_fn = generate_fn
+
+    scheduler = ForgeScheduler(plan, _generate_fn, num_workers=workers, console=console)
     results = await scheduler.run()
 
     # Step 6: Assemble

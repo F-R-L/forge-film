@@ -55,11 +55,9 @@ class StreamAssembler:
             return None
 
     def finalize(self) -> str:
-        # Assemble any remaining scenes
-        remaining_ids = self.timeline[self._assembled_up_to:]
-        all_ids = self.timeline
+        # Concatenate all scenes into the final output file
         all_paths = [
-            self._completed.get(sid, "") for sid in all_ids
+            self._completed.get(sid, "") for sid in self.timeline
         ]
 
         result = self._concatenate(all_paths)

@@ -26,7 +26,6 @@ dependencies = [
     "moviepy>=1.0.3",
     "Pillow>=10.0.0",
     "python-dotenv>=1.0.0",
-    "aiofiles>=23.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -41,6 +40,10 @@ dev = [
 
 [project.scripts]
 forge = "forge.cli:app"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 
 [project.urls]
 homepage = "https://github.com/F-R-L/forge-film"

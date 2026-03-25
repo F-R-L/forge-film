@@ -21,5 +21,9 @@ output/
 *.mp4
 *.png
 !assets/demo.gif
+!assets/forge_gantt.png
+!assets/forge_dag.png
+!assets/i2v_continuity.png
+!assets/forge_benchmark.png
 .DS_Store
 Thumbs.db

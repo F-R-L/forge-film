@@ -2,12 +2,6 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 
-class Complexity(int, Enum):
-    LIGHT = 1   # 1-3: dialogue, monologue, static
-    MEDIUM = 5  # 4-6: crowds, movement, multi-character
-    HEAVY = 8   # 7-10: chase, fight, explosion
-
-
 class AssetType(str, Enum):
     CHARACTER = "character"
     LOCATION = "location"

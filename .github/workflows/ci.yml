@@ -21,11 +21,22 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .[dev]
-          pip install pytest pytest-asyncio
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
+        env:
+          OPENAI_API_KEY: ""
+          KLING_API_KEY: ""
+          KLING_API_SECRET: ""
