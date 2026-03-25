@@ -104,6 +104,14 @@ Forge 把这整条流程自动化：
 
 ## 🚀 快速开始
 
+> **没有 API key？** 用 `--backend mock` 可以零外部依赖完整跑通整条流程——不需要 Kling、不需要 OpenAI，什么都不用。
+
+### 环境要求
+
+- Python 3.11+
+- ffmpeg（视频拼接用 — `winget install Gyan.FFmpeg` / `brew install ffmpeg` / `apt install ffmpeg`）
+- GPU 可选 — CogVideoX 本地后端需要 CUDA 12+；其他后端均为 API 调用
+
 ### 安装
 
 ```bash
@@ -232,6 +240,12 @@ benchmarks/            # 并行 vs 串行加速对比图
 - [ ] GPU 加速本地视频拼接
 - [ ] 故事模板库
 - [ ] 使用 Kling API 的真实 benchmark 结果
+
+---
+
+## 🤝 贡献
+
+欢迎 PR 和 Issue — 详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ---
 

@@ -104,6 +104,14 @@ Forge automates the entire pipeline:
 
 ## 🚀 Quickstart
 
+> **No API keys?** Run with `--backend mock` for a full end-to-end test with zero external dependencies — no Kling, no OpenAI, nothing.
+
+### Requirements
+
+- Python 3.11+
+- ffmpeg (for video assembly — `winget install Gyan.FFmpeg` / `brew install ffmpeg` / `apt install ffmpeg`)
+- GPU optional — CogVideoX local backend requires CUDA 12+; all other backends are API-based
+
 ### Install
 
 ```bash
@@ -234,6 +242,12 @@ benchmarks/            # Parallel vs serial speedup charts
 - [ ] GPU-accelerated local video assembly
 - [ ] Story template library
 - [ ] Real benchmark results with Kling API
+
+---
+
+## 🤝 Contributing
+
+PRs and issues welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
