@@ -1,6 +1,7 @@
 import asyncio
 import heapq
 import os
+import subprocess
 import time
 from collections.abc import Awaitable, Callable
 
@@ -17,24 +18,20 @@ from rich.progress import (
 from forge.compiler.schema import Asset, ProductionPlan, Scene
 from forge.scheduler.cpm import compute_critical_path, get_priority_queue_items
 from forge.scheduler.dag import compute_in_degree, get_reverse_dag
-from forge.continuity.color_calibration import ColorCalibrator, extract_first_frame
+from forge.continuity.color_calibration import ColorCalibrator
 
 
 def _extract_last_frame(video_path: str) -> str | None:
-    """Extract the last frame of a video, save as JPEG next to it. Returns path or None."""
+    """Extract last frame of a video as JPEG using ffmpeg."""
     if not video_path or not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
         return None
+    out = video_path.replace(".mp4", "_last_frame.jpg")
+    cmd = ["ffmpeg", "-y", "-sseof", "-0.1", "-i", video_path,
+           "-vframes", "1", "-q:v", "2", out]
     try:
-        from moviepy.editor import VideoFileClip
-        clip = VideoFileClip(video_path)
-        frame = clip.get_frame(max(0.0, clip.duration - 0.05))
-        clip.close()
-        from PIL import Image
-        img = Image.fromarray(frame)
-        out = video_path.replace(".mp4", "_last_frame.jpg")
-        img.save(out, format="JPEG", quality=92)
-        return out
-    except Exception:
+        subprocess.run(cmd, check=True, capture_output=True)
+        return out if os.path.exists(out) else None
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
 

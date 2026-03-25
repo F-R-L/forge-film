@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from typing import TYPE_CHECKING
 
 
@@ -147,18 +148,14 @@ class ColorCalibrator:
 
 
 def extract_first_frame(video_path: str, output_dir: str | None = None) -> str | None:
-    """Extract the first frame of a video as JPEG. Returns path or None."""
+    """Extract the first frame of a video as JPEG using ffmpeg. Returns path or None."""
     if not video_path or not os.path.exists(video_path):
         return None
+    out_dir = output_dir or os.path.dirname(video_path)
+    out = os.path.join(out_dir, os.path.basename(video_path).replace(".mp4", "_first_frame.jpg"))
+    cmd = ["ffmpeg", "-y", "-i", video_path, "-vframes", "1", "-q:v", "2", out]
     try:
-        from moviepy.editor import VideoFileClip
-        from PIL import Image
-        clip = VideoFileClip(video_path)
-        frame = clip.get_frame(0.0)
-        clip.close()
-        out_dir = output_dir or os.path.dirname(video_path)
-        out = os.path.join(out_dir, os.path.basename(video_path).replace(".mp4", "_first_frame.jpg"))
-        Image.fromarray(frame).save(out, format="JPEG", quality=92)
-        return out
-    except Exception:
+        subprocess.run(cmd, check=True, capture_output=True)
+        return out if os.path.exists(out) else None
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return None
