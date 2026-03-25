@@ -35,7 +35,66 @@ Making a multi-scene AI film means logging into Kling, CogVideoX, Seedance separ
 
 ---
 
+## End-to-end walkthrough
+
+Given this story (`examples/detective.txt`):
+
+```
+一位疲惫的私家侦探接受了一个失踪案委托。他的客户是一位焦虑的中年女人，她的丈夫三天前离奇失踪。
+侦探调查丈夫的办公室，发现一封未寄出的信和一张地下室的钥匙。
+与此同时，一个神秘男人在街头跟踪侦探。
+侦探找到地下室，发现了失踪丈夫藏匿的秘密账本。
+神秘男人突然出现，两人发生冲突。
+侦探最终将秘密账本交给警察，案件真相大白。
+```
+
+Forge compiles it into a DAG and schedules:
+
+```
+forge plan examples/detective.txt --scenes 6
+
+Plan: 6 scenes
+DAG: {'S1': ['S2', 'S3'], 'S2': ['S4'], 'S3': ['S5'], 'S4': ['S6'], 'S5': ['S6'], 'S6': []}
+
+Routing:
+  S1  dialogue    → kling_light
+  S2  action      → kling_heavy
+  S3  landscape   → cogvideo
+  S4  action      → kling_heavy
+  S5  dialogue    → kling_light
+  S6  dialogue    → kling_light
+
+Critical path: S1 → S2 → S4 → S6  (longest chain)
+Estimated time: 20 min parallel  vs  30 min serial
+```
+
+Then runs:
+
+```
+forge run examples/detective.txt --workers 4
+
+[00:00] S1 started  (kling_light)
+[00:00] S3 started  (cogvideo)       ← parallel
+[05:00] S1 done  → S2 unlocked
+[05:00] S2 started  (kling_heavy)
+[07:00] S3 done  → S3→S2 color calibration applied
+[10:00] S2 done  → S4 unlocked
+[10:00] S4 started  (kling_heavy)
+...
+[20:00] S6 done  → assembling final.mp4
+
+Done. Output: ./output/final.mp4
+```
+
+---
+
 ## Parallel scheduling
+
+Forge uses the **Critical Path Method (CPM)** to find the longest dependency chain in your scene DAG and prioritizes those scenes first. Scenes with no blocking dependencies start immediately.
+
+In the example above: S1→S2→S4→S6 is the critical path. With 4 workers, S1 and S3 launch simultaneously at t=0. The total wall time drops from 30 min (serial) to 20 min.
+
+Speedup scales with scene independence — a story where half the scenes are parallel will run roughly 2× faster.
 
 ```mermaid
 gantt
@@ -69,6 +128,15 @@ gantt
 ---
 
 ## Cross-model continuity
+
+Kling, CogVideoX, and Seedance have different color profiles, exposure levels, and visual styles. Cutting directly between them produces jarring transitions.
+
+When scene B depends on scene A and they use different backends, Forge automatically:
+1. Extracts the last frame of scene A
+2. Applies histogram color matching to align the color distribution
+3. Passes the corrected frame as the i2v (image-to-video) seed for scene B
+
+The result: visual continuity across model boundaries without manual color grading.
 
 ```mermaid
 flowchart LR
@@ -179,6 +247,40 @@ KLING_API_SECRET=...
 | Cross-model color calibration | ✅ | Unknown | N/A | N/A |
 | Pluggable backends | ✅ | ❌ | ❌ | ❌ |
 | Data privacy | ✅ stays local | ❌ third-party | ❌ | Partial |
+
+---
+
+## 🎬 Supported backends
+
+| Backend | Type | Best for | Cost |
+|---|---|---|---|
+| `kling_light` | API (Kling v1) | Dialogue, character consistency, lip sync | Per-second |
+| `kling_heavy` | API (Kling v1.5 Pro) | Action, complex motion, longer clips | Per-second (higher) |
+| `cogvideo` | Local (CogVideoX-2b) | Landscapes, transitions, atmospheric shots | Free (GPU) |
+| `seedance` | API (Seedance) | Fast motion, sports, dynamic scenes | Per-second |
+| `wan` | Local (Wan 2.x) | General purpose, good quality/cost ratio | Free (GPU) |
+| `mock` | Local (no-op) | Testing, CI, development | Free |
+
+All backends implement the same `BasePipeline` interface — adding a new one takes ~50 lines.
+
+---
+
+## ❓ FAQ
+
+**Do I need a GPU?**
+No. All cloud backends (Kling, Seedance) are API-based. A GPU is only needed if you use the local CogVideoX or Wan backends.
+
+**Can I use only one video model?**
+Yes. Set all routing keys to the same backend in `forge.yaml`, or pass `--backend kling_light` on the CLI.
+
+**How does Forge handle API failures?**
+Each scene retries up to `scheduler.max_retries` times (default: 2) with exponential backoff. Failed scenes are returned in the `failed` dict so you can inspect or re-run them.
+
+**What video formats does the assembler output?**
+H.264 MP4 by default via ffmpeg. Resolution and frame rate are normalized across all input clips before concatenation.
+
+**Can I plug in my own video model?**
+Yes — subclass `BasePipeline` in `forge/generation/base.py`, implement `generate()`, and register it in the router. No changes needed elsewhere.
 
 ---
 
