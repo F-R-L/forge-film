@@ -37,7 +37,7 @@ Forge 的不同之处：
 3. **并行 Worker**：独立场景同时分发给多个 worker 并行生成。
 4. **i2v 连续性**：每个场景完成后自动提取最后一帧，传递给下游场景作为起始帧，保证画面连续性。
 
-![Forge vs Serial Gantt](assets/forge_gantt.png)
+![Forge vs Serial Gantt](assets/forge_gantt.webp)
 
 > Speedup scales with scene independence in your story's DAG. A story with 3 fully independent branches runs in ⅓ the time.
 >
