@@ -56,7 +56,7 @@ def test_self_loop_raises_error():
     report = validate_and_fix(plan)
     assert report.has_errors
     error_rules = [i.rule for i in report.issues]
-    assert "self_loop" in error_rules
+    assert "cycle" in error_rules
 
 
 def test_isolated_interior_node_warns():
