@@ -11,7 +11,7 @@ Forge orchestrates Kling, CogVideoX, Seedance, and any video backend into one co
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.0-green)](https://github.com/F-R-L/forge-film)
 
-[English](#-why-forge) | [中文文档](README.zh.md)
+[中文文档](README.zh.md) | [Quick Start](#-quickstart)
 
 </div>
 
