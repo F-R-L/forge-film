@@ -222,7 +222,7 @@ forge plan examples/romance.txt --scenes 6
 forge benchmark --scenes 8 --workers 4
 ```
 
-![Benchmark Speedup](assets/forge_benchmark.png)
+![Benchmark Speedup](assets/forge_benchmark.webp)
 
 ---
 
