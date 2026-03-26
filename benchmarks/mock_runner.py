@@ -42,12 +42,12 @@ async def run_serial(plan: ProductionPlan) -> float:
 async def run_parallel(plan: ProductionPlan, workers: int) -> float:
     pipeline = MockPipeline()
 
-    async def gen_fn(scene, assets):
+    async def gen_fn(scene, assets, prev_frame=None):
         return await pipeline.generate(scene, assets, "./output/benchmark")
 
     scheduler = ForgeScheduler(plan, gen_fn, num_workers=workers)
     t0 = time.monotonic()
-    await scheduler.run()
+    await scheduler.run({}, output_dir="./output/benchmark")
     return time.monotonic() - t0
 
 

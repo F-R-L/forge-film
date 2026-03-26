@@ -95,10 +95,9 @@ async def _run_pipeline(
     progress(0.05, desc="Compiling story...")
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     if openai_key:
-        import openai
-        client = openai.AsyncOpenAI(api_key=openai_key)
+        from forge.providers.llm import OpenAILLMProvider
         from forge.compiler.vision_compiler import VisionCompiler
-        compiler = VisionCompiler(client)
+        compiler = VisionCompiler(OpenAILLMProvider(api_key=openai_key))
         log_fn("Using OpenAI to compile story...")
         plan = await compiler.compile(story, num_scenes)
     else:
