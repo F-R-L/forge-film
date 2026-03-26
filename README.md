@@ -178,7 +178,9 @@ forge plan examples/detective.txt --scenes 6
 forge webui
 ```
 
-**Web UI** — screenshot coming soon. Run `forge webui` to launch the Gradio interface locally.
+**Web UI** — Run `forge webui` to launch the Gradio interface locally.
+
+![Forge Web UI](assets/webui_screenshot.png)
 
 ### As a library
 

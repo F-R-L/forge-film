@@ -25,5 +25,6 @@ output/
 !assets/forge_dag.png
 !assets/i2v_continuity.png
 !assets/forge_benchmark.png
+!assets/webui_screenshot.png
 .DS_Store
 Thumbs.db
