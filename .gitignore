@@ -27,5 +27,6 @@ output/
 !assets/forge_benchmark.png
 !assets/webui_screenshot.png
 !assets/architecture.webp
+!assets/banner.webp
 .DS_Store
 Thumbs.db

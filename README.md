@@ -1,5 +1,7 @@
 <div align="center">
 
+![Forge Banner](assets/banner.webp)
+
 # 🎬 Forge
 
 **One story, multiple AI models, zero manual stitching.**
