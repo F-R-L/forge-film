@@ -31,7 +31,7 @@ Making a multi-scene AI film means logging into Kling, CogVideoX, Seedance separ
 
 🎨 **Cross-model continuity** — when scene B (CogVideoX) follows scene A (Kling), Forge extracts A's last frame, applies histogram color matching, and passes it as the i2v seed. No jarring cuts.
 
-🎬 **Streaming assembly** — clips concatenate as each scene finishes. Normalized resolution and frame rate. Outputs `final.mp4`.
+🎬 **Final assembly** — once all scenes are generated, clips are concatenated in a single ffmpeg pass. Normalized resolution and frame rate. Outputs `final.mp4`.
 
 ---
 
