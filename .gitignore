@@ -26,5 +26,6 @@ output/
 !assets/i2v_continuity.png
 !assets/forge_benchmark.png
 !assets/webui_screenshot.png
+!assets/architecture.webp
 .DS_Store
 Thumbs.db

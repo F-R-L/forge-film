@@ -288,6 +288,8 @@ Yes — subclass `BasePipeline` in `forge/generation/base.py`, implement `genera
 
 ## 🏗️ Architecture
 
+![Forge Architecture](assets/architecture.webp)
+
 ```
 forge.yaml
     │
