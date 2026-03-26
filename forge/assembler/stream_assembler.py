@@ -23,22 +23,10 @@ class StreamAssembler:
         self.target_width = target_width
         self.target_height = target_height
         self._completed: dict[str, str] = {}
-        self._assembled_up_to: int = 0
         self.console = Console()
 
     def on_scene_complete(self, scene_id: str, video_path: str) -> None:
         self._completed[scene_id] = video_path
-        self._try_assemble()
-
-    def _try_assemble(self) -> None:
-        i = self._assembled_up_to
-        while i < len(self.timeline) and self.timeline[i] in self._completed:
-            i += 1
-        if i - self._assembled_up_to < 2:
-            return
-        paths = [self._completed[sid] for sid in self.timeline[self._assembled_up_to:i]]
-        self._ffmpeg_concat(paths, suffix=f"_seg{self._assembled_up_to}")
-        self._assembled_up_to = i
 
     def _ffmpeg_concat(self, paths: list[str], suffix: str = "") -> str | None:
         valid = [p for p in paths if p and os.path.exists(p) and os.path.getsize(p) > 0]

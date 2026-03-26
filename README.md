@@ -27,7 +27,7 @@ Making a multi-scene AI film means logging into Kling, CogVideoX, Seedance separ
 
 ⚡ **CPM parallel scheduling** — Critical Path Method finds the longest dependency chain and prioritizes it. N workers run simultaneously, not one by one.
 
-🎯 **Scene-type routing** — dialogue → Kling, landscapes → CogVideoX (free, local), action → Seedance. Fully configurable in `forge.yaml`.
+🎯 **Scene-type routing** — dialogue → Kling, landscapes → CogVideoX (free, local), action → Kling. Fully configurable in `forge.yaml`.
 
 🎨 **Cross-model continuity** — when scene B (CogVideoX) follows scene A (Kling), Forge extracts A's last frame, applies histogram color matching, and passes it as the i2v seed. No jarring cuts.
 
