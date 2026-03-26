@@ -63,11 +63,11 @@ class ForgeScheduler:
         self._failed_scenes: list[str] = []
         self._stats: dict = {}
 
-    async def _generate_with_retry(self, scene: Scene, assets: dict[str, Asset]) -> str:
+    async def _generate_with_retry(self, scene: Scene, assets: dict[str, Asset], prev_frame: str | None = None) -> str:
         last_exc = None
         for attempt in range(self.max_retries + 1):
             try:
-                result = await self.generate_fn(scene, assets)
+                result = await self.generate_fn(scene, assets, prev_frame)
                 return result
             except Exception as exc:
                 last_exc = exc
@@ -165,7 +165,7 @@ class ForgeScheduler:
                         scene, reverse_dag, output_dir
                     )
                     try:
-                        video_path = await self._generate_with_retry(scene, assets)
+                        video_path = await self._generate_with_retry(scene, assets, prev_frame)
                         scene.output_video_path = video_path
                         scene.status = "done"
                         # Extract last frame for downstream scenes

@@ -134,7 +134,9 @@ async def _run_pipeline(
     else:
         light = mock
         heavy = mock
-    router = PipelineRouter(light=light, heavy=heavy, medium=mock)
+    router = PipelineRouter(
+        backends={"mock": mock, "kling_light": light, "kling_heavy": heavy},
+    )
 
     async def generate_fn(scene, assets, prev_frame=None):
         return await router.generate(scene, asset_map, output_dir, prev_frame=prev_frame)
@@ -142,9 +144,8 @@ async def _run_pipeline(
     # Step 4: Validation setup
     if not skip_vlm and openai_key:
         from forge.validation.vlm_validator import VLMValidator
-        import openai as _openai
-        _client = _openai.AsyncOpenAI(api_key=openai_key)
-        validator = VLMValidator(_client)
+        from forge.providers.vlm import OpenAIVLMProvider
+        validator = VLMValidator(OpenAIVLMProvider(api_key=openai_key))
 
         async def validated_generate_fn(scene, assets, prev_frame=None):
             async def _gen(s, a):
@@ -175,7 +176,7 @@ async def _run_pipeline(
         return result
 
     scheduler = ForgeScheduler(plan, tracked_generate, num_workers=workers, console=console)
-    results, failed_scenes = await scheduler.run()
+    results, failed_scenes = await scheduler.run(asset_map, output_dir=output_dir)
 
     # Step 6: Assemble
     progress(0.85, desc="Assembling final video...")
