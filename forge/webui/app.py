@@ -175,8 +175,22 @@ async def _run_pipeline(
         log_fn(f"Scene {scene.id} complete")
         return result
 
-    scheduler = ForgeScheduler(plan, tracked_generate, num_workers=workers, console=console)
-    results, failed_scenes = await scheduler.run(asset_map, output_dir=output_dir)
+    from forge.continuity.color_calibration import ColorCalibrator
+    from forge.scheduler.cpm import compute_critical_path_with_routing
+    default_routing = {
+        "dialogue": "kling_light", "action": "kling_heavy",
+        "landscape": "cogvideo", "product": "kling_heavy",
+        "transition": "cogvideo", "default": "mock",
+    }
+    cp = compute_critical_path_with_routing(plan.dag, plan.scenes, default_routing)
+    scheduler = ForgeScheduler(
+        plan,
+        tracked_generate,
+        num_workers=workers,
+        console=console,
+        color_calibrator=ColorCalibrator(),
+    )
+    results, failed_scenes = await scheduler.run(asset_map, output_dir=output_dir, critical_path=cp)
 
     # Step 6: Assemble
     progress(0.85, desc="Assembling final video...")
