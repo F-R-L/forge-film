@@ -40,12 +40,12 @@ Making a multi-scene AI film means logging into Kling, CogVideoX, Seedance separ
 Given this story (`examples/detective.txt`):
 
 ```
-一位疲惫的私家侦探接受了一个失踪案委托。他的客户是一位焦虑的中年女人，她的丈夫三天前离奇失踪。
-侦探调查丈夫的办公室，发现一封未寄出的信和一张地下室的钥匙。
-与此同时，一个神秘男人在街头跟踪侦探。
-侦探找到地下室，发现了失踪丈夫藏匿的秘密账本。
-神秘男人突然出现，两人发生冲突。
-侦探最终将秘密账本交给警察，案件真相大白。
+A weary private detective takes on a missing-person case. His client is an anxious middle-aged woman whose husband vanished without a trace three days ago.
+The detective searches the husband's office and finds an unsent letter and a basement key.
+Meanwhile, a mysterious man begins tailing the detective through the streets.
+The detective locates the basement and discovers a secret ledger the missing husband had hidden away.
+The mysterious man suddenly appears — a confrontation erupts.
+The detective delivers the secret ledger to the police, and the truth finally comes to light.
 ```
 
 Forge compiles it into a DAG and schedules:
