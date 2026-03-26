@@ -129,7 +129,7 @@ async def _run(
     )
     scheduler.on_scene_complete = assembler.on_scene_complete
 
-    results, failed_scenes = await scheduler.run(asset_map, output_dir)
+    results, failed_scenes = await scheduler.run(asset_map, output_dir, critical_path=cp)
 
     if failed_scenes:
         console.print(f"[red]Failed scenes: {failed_scenes}[/red]")

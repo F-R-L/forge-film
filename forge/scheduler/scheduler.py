@@ -39,7 +39,7 @@ class ForgeScheduler:
     def __init__(
         self,
         plan: ProductionPlan,
-        generate_fn: Callable[[Scene, dict[str, Asset]], Awaitable[str]],
+        generate_fn: Callable[[Scene, dict[str, Asset], str | None], Awaitable[str]],
         num_workers: int = 4,
         console: Console | None = None,
         max_retries: int = 2,
@@ -121,6 +121,7 @@ class ForgeScheduler:
         self,
         assets: dict[str, Asset],
         output_dir: str = "./output",
+        critical_path: dict[str, float] | None = None,
     ) -> tuple[dict[str, str], list[str]]:
         """Run the CPM-scheduled parallel generation.
 
@@ -132,10 +133,11 @@ class ForgeScheduler:
         os.makedirs(output_dir, exist_ok=True)
         dag = self.plan.dag
         reverse_dag = get_reverse_dag(dag)
-        durations = {
-            s.id: s.estimated_duration_sec for s in self.plan.scenes
-        }
-        critical_path = compute_critical_path(dag, durations)
+        if critical_path is None:
+            durations = {
+                s.id: s.estimated_duration_sec for s in self.plan.scenes
+            }
+            critical_path = compute_critical_path(dag, durations)
         heap = get_priority_queue_items(critical_path)
         heapq.heapify(heap)
 
