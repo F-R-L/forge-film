@@ -35,16 +35,18 @@ class LightPipeline(BasePipeline):
             "duration": "5",
             "mode": "std",
         }
-        # i2v: use prev_frame as starting frame if available
-        if prev_frame and os.path.exists(prev_frame):
+
+        use_i2v = bool(prev_frame and os.path.exists(prev_frame))
+        if use_i2v:
             import base64
             with open(prev_frame, "rb") as f:
                 body["image"] = base64.b64encode(f.read()).decode()
 
+        endpoint = "image2video" if use_i2v else "text2video"
         token = build_kling_jwt(self.api_key, self.api_secret)
         async with httpx.AsyncClient(timeout=300) as client:
             resp = await client.post(
-                "https://api.klingai.com/v1/videos/text2video",
+                f"https://api.klingai.com/v1/videos/{endpoint}",
                 headers={"Authorization": f"Bearer {token}"},
                 json=body,
             )
@@ -52,7 +54,7 @@ class LightPipeline(BasePipeline):
             task_id = resp.json()["data"]["task_id"]
 
             # Poll until complete
-            video_url = await self._poll(client, task_id)
+            video_url = await self._poll(client, task_id, endpoint)
 
         # Download
         async with httpx.AsyncClient(timeout=120) as client:
@@ -62,11 +64,11 @@ class LightPipeline(BasePipeline):
 
         return out_path
 
-    async def _poll(self, client: httpx.AsyncClient, task_id: str) -> str:
+    async def _poll(self, client: httpx.AsyncClient, task_id: str, endpoint: str) -> str:
         for _ in range(120):
             await asyncio.sleep(5)
             resp = await client.get(
-                f"https://api.klingai.com/v1/videos/text2video/{task_id}",
+                f"https://api.klingai.com/v1/videos/{endpoint}/{task_id}",
                 headers={"Authorization": f"Bearer {build_kling_jwt(self.api_key, self.api_secret)}"},
             )
             resp.raise_for_status()
