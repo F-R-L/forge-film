@@ -125,16 +125,23 @@ async def _run_pipeline(
     if backend == "kling":
         light = LightPipeline()
         heavy = HeavyPipeline()
+        cogvideo_pipe = mock
     elif backend == "cogvideo":
         from forge.generation.cogvideo_pipeline import CogVideoPipeline
-        cogvideo = CogVideoPipeline()
-        light = cogvideo
-        heavy = cogvideo
+        cogvideo_pipe = CogVideoPipeline()
+        light = cogvideo_pipe
+        heavy = cogvideo_pipe
     else:
         light = mock
         heavy = mock
+        cogvideo_pipe = mock
     router = PipelineRouter(
-        backends={"mock": mock, "kling_light": light, "kling_heavy": heavy},
+        backends={
+            "mock": mock,
+            "kling_light": light,
+            "kling_heavy": heavy,
+            "cogvideo": cogvideo_pipe,
+        },
     )
 
     async def generate_fn(scene, assets, prev_frame=None):
