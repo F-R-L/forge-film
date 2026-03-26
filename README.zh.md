@@ -1,5 +1,7 @@
 <div align="center">
 
+![Forge Banner](assets/banner.webp)
+
 # 🎬 Forge
 
 **一个故事，多个 AI 模型，零手动拼接。**
@@ -174,6 +176,18 @@ forge run examples/detective.txt
 
 ---
 
+## 🖥️ Web UI
+
+```bash
+forge webui
+```
+
+**Web UI** — 运行 `forge webui` 在本地启动 Gradio 界面。
+
+![Forge Web UI](assets/webui_screenshot.png)
+
+---
+
 ## Python API
 
 ```python
@@ -279,6 +293,8 @@ KLING_API_SECRET=...
 ---
 
 ## 🏗️ 架构
+
+![Forge Architecture](assets/architecture.webp)
 
 ```
 ForgeConfig (forge.yaml)
