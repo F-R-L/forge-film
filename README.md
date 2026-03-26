@@ -13,8 +13,6 @@
 
 [中文文档](README.zh.md) | [Quick Start](#-quickstart)
 
-![Forge Demo](assets/demo.gif)
-
 </div>
 
 ---
